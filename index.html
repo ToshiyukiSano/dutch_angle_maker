@@ -138,16 +138,16 @@ footer{color:var(--muted);font-size:.8rem;margin-top:28px}
     <div class="row">
       <div class="row-head"><span class="lbl">動き</span></div>
       <div class="seg" id="motion">
-        <button data-m="fixed" aria-pressed="true">固定</button>
+        <button data-m="fixed" aria-pressed="false">固定</button>
         <button data-m="creep" aria-pressed="false">じわじわ傾く</button>
-        <button data-m="sway" aria-pressed="false">ゆらゆら</button>
+        <button data-m="sway" aria-pressed="true">ゆらゆら</button>
       </div>
-      <p class="hint" id="motionHint">最初から最後まで同じ角度のままです。</p>
+      <p class="hint" id="motionHint">設定した角度を振れ幅にして、左右にゆっくり揺れます。</p>
     </div>
 
     <div class="row">
-      <div class="row-head"><label for="shake">手ブレ</label><span class="val" id="shakeVal">0</span></div>
-      <input type="range" id="shake" min="0" max="100" step="1" value="0">
+      <div class="row-head"><label for="shake">手ブレ</label><span class="val" id="shakeVal">50</span></div>
+      <input type="range" id="shake" min="0" max="100" step="1" value="50">
       <div class="seg" id="shakeSpeed" style="margin-top:8px">
         <button data-s="slow" aria-pressed="false">ゆったり</button>
         <button data-s="mid" aria-pressed="true">ふつう</button>
@@ -185,7 +185,7 @@ footer{color:var(--muted);font-size:.8rem;margin-top:28px}
 (() => {
   const $ = id => document.getElementById(id);
   const vid = $('vid'), cv = $('cv'), ctx = cv.getContext('2d');
-  const state = { angle:-12, motion:'fixed', fit:'fill', shake:0, shakeSpeed:'mid', loaded:false, exporting:false, blob:null, ext:'webm', name:'video' };
+  const state = { angle:-12, motion:'sway', fit:'fill', shake:50, shakeSpeed:'mid', loaded:false, exporting:false, blob:null, ext:'webm', name:'video' };
   let downloads = null;
   let audioCtx = null, audioDest = null, srcNode = null;
 
