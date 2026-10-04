@@ -451,17 +451,59 @@ footer{color:var(--muted);font-size:.8rem;margin-top:28px}
     $('saveHint').textContent = state.ext === 'webm'
       ? '形式はWebMです。iPhoneの写真アプリでは再生できない場合があります。'
       : '';
+    prepareSave();
     $('result').classList.add('on');
     $('result').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block:'start' });
   });
 
   // ---- save ----
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ||
+    (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform || ''));
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform || ''));
+
+  function makeFile(){
+    const filename = state.name + '_dutch.' + state.ext;
+    const type = state.ext === 'mp4' ? 'video/mp4' : 'video/webm';
+    return new File([state.blob], filename, { type });
+  }
+  function canShareFile(){
+    if (!isMobile || !navigator.canShare || !state.blob) return false;
+    try { return navigator.canShare({ files: [makeFile()] }); } catch (e) { return false; }
+  }
+  // Called when an export finishes: label the button for the platform
+  function prepareSave(){
+    const share = canShareFile();
+    $('saveBtn').textContent = share ? '写真に保存' : '保存する';
+    if (share && isIOS) {
+      $('saveHint').textContent = state.ext === 'mp4'
+        ? '押すと共有メニューが開きます。「ビデオを保存」を選ぶと写真アプリに入ります。'
+        : 'この形式(WebM)は写真アプリに保存できません。Safariで開き直して書き出すとMP4になります。';
+    } else if (share) {
+      $('saveHint').textContent = '押すと共有メニューが開きます。「フォトにアップロード」やギャラリーアプリを選んでください。';
+    }
+  }
+
   $('saveBtn').addEventListener('click', async () => {
     if (!state.blob) return;
-    const filename = state.name + '_dutch.' + state.ext;
+    const file = makeFile();
+
+    // 1) Phones: native share sheet → "ビデオを保存" puts it in Photos
+    if (canShareFile()) {
+      try {
+        await navigator.share({ files: [file] });
+        $('saveHint').textContent = isIOS ? '保存しました。写真アプリを確認してください。' : '共有しました。';
+        return;
+      } catch (e) {
+        if (e && e.name === 'AbortError') { $('saveHint').textContent = '保存をキャンセルしました。'; return; }
+        // otherwise fall through to the other methods
+      }
+    }
+
+    // 2) Inside Claude: platform save
     if (downloads) {
       try {
-        await downloads.save({ filename, data: state.blob });
+        await downloads.save({ filename: file.name, data: state.blob });
         $('saveHint').textContent = '保存しました。';
       } catch (e) {
         const code = e && e.code;
@@ -472,11 +514,14 @@ footer{color:var(--muted);font-size:.8rem;margin-top:28px}
       }
       return;
     }
-    // Fallback (works outside the published viewer)
+
+    // 3) Normal browser download
     const a = document.createElement('a');
-    a.href = $('out').src; a.download = filename;
+    a.href = $('out').src; a.download = file.name;
     document.body.appendChild(a); a.click(); a.remove();
-    $('saveHint').textContent = '保存が始まらない場合は、上のプレーヤーを長押し(または右クリック)して保存してください。';
+    $('saveHint').textContent = isMobile
+      ? 'ダウンロードしました。Androidではギャラリーの「ダウンロード」フォルダに入ります。'
+      : '保存が始まらない場合は、上のプレーヤーを右クリックして保存してください。';
   });
 
   setAngle(-12);
