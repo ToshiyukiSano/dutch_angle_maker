@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ダッチアングル変換</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#E7EBF0; --surface:#FFFFFF; --ink:#1A2130; --muted:#5A6476;
+  --line:#C9D0DA; --accent:#E9B200; --accent-ink:#1A2130; --stage:#141922;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#161B24; --surface:#202734; --ink:#EEF1F5; --muted:#9AA4B5;
+    --line:#343D4D; --accent:#F2C230; --accent-ink:#161B24; --stage:#0A0D12;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#161B24; --surface:#202734; --ink:#EEF1F5; --muted:#9AA4B5;
+  --line:#343D4D; --accent:#F2C230; --accent-ink:#161B24; --stage:#0A0D12;
+}
+*,*::before,*::after{box-sizing:inherit}
+[hidden]{display:none !important}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"Zen Kaku Gothic New","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+  line-height:1.6; -webkit-text-size-adjust:100%;
+}
+main{max-width:720px;margin:0 auto;padding:28px 18px 48px}
+h1{
+  font-family:"Dela Gothic One","Zen Kaku Gothic New",sans-serif;
+  font-weight:400; font-size:clamp(2.1rem,9vw,3.4rem); line-height:1.1;
+  margin:8px 0 6px; display:inline-block;
+  transform:rotate(var(--tilt,-8deg)); transform-origin:left bottom;
+  transition:transform .25s ease;
+}
+.lede{color:var(--muted);margin:14px 0 22px;font-size:.98rem}
+
+.stage{
+  position:relative; background:var(--stage); border-radius:14px; overflow:hidden;
+  aspect-ratio:16/9; display:grid; place-items:center;
+}
+.stage canvas{max-width:100%;max-height:100%;display:block}
+.drop{
+  position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:10px; color:#E7EBF0; text-align:center; padding:20px; cursor:pointer;
+  border:2px dashed rgba(231,235,240,.35); border-radius:14px; margin:10px;
+}
+.drop.over{border-color:var(--accent)}
+.drop strong{font-size:1.1rem}
+.drop span{font-size:.85rem;opacity:.75}
+.frame-icon{width:64px;height:44px;border:3px solid var(--accent);border-radius:6px;transform:rotate(-15deg)}
+
+.transport{display:flex;gap:10px;align-items:center;margin-top:12px}
+.transport input[type=range]{flex:1}
+
+.panel{background:var(--surface);border-radius:14px;padding:18px;margin-top:16px;border:1px solid var(--line)}
+.row{margin-bottom:18px}
+.row:last-child{margin-bottom:0}
+.row-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+.row-head label,.row-head .lbl{font-weight:700}
+.val{font-family:"Dela Gothic One",sans-serif;font-size:1.3rem;font-variant-numeric:tabular-nums}
+.hint{color:var(--muted);font-size:.82rem;margin:4px 0 0}
+
+input[type=range]{width:100%;accent-color:var(--accent);height:28px}
+.presets{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+button{
+  font:inherit; color:var(--ink); background:transparent; border:1px solid var(--line);
+  border-radius:999px; padding:7px 14px; cursor:pointer; min-height:38px;
+}
+button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+button:disabled{opacity:.45;cursor:not-allowed}
+.primary{
+  width:100%; background:var(--accent); color:var(--accent-ink); border:none;
+  font-weight:700; font-size:1.05rem; border-radius:12px; padding:14px; margin-top:16px;
+}
+.icon-btn{border-radius:10px;padding:7px 12px;min-width:48px}
+
+.progress{height:8px;background:var(--line);border-radius:4px;overflow:hidden;margin-top:12px;display:none}
+.progress.on{display:block}
+.progress i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s linear}
+.status{font-size:.9rem;color:var(--muted);margin-top:8px;min-height:1.4em}
+
+.result{display:none;margin-top:16px}
+.result.on{display:block}
+.result video{width:100%;border-radius:12px;background:var(--stage);display:block}
+.result .actions{display:flex;gap:8px;margin-top:10px}
+.result .actions button{flex:1}
+.save{background:var(--ink);color:var(--bg);border-color:var(--ink);font-weight:700;border-radius:12px}
+footer{color:var(--muted);font-size:.8rem;margin-top:28px}
+@media (prefers-reduced-motion:reduce){h1{transition:none}}
+</style>
+</head>
+<body>
+<main>
+  <h1 id="title">ダッチアングル</h1>
+  <p class="lede">動画を読み込んで角度を決めるだけ。傾けた映像をそのまま書き出せます。処理はすべてこの端末の中で行われ、動画がどこかに送られることはありません。</p>
+
+  <div class="stage" id="stage">
+    <canvas id="cv" width="1280" height="720" hidden></canvas>
+    <div class="drop" id="drop" role="button" tabindex="0" aria-label="動画を選ぶ">
+      <div class="frame-icon" aria-hidden="true"></div>
+      <strong>動画を選ぶ</strong>
+      <span>タップして選択、またはここにドロップ</span>
+    </div>
+  </div>
+  <input type="file" id="file" accept="video/*" hidden>
+  <video id="vid" playsinline preload="auto" hidden></video>
+
+  <div class="transport" id="transport" hidden>
+    <button class="icon-btn" id="playBtn" aria-label="再生">▶</button>
+    <input type="range" id="seek" min="0" max="1000" value="0" aria-label="再生位置">
+    <button class="icon-btn" id="changeBtn">変更</button>
+  </div>
+
+  <section class="panel">
+    <div class="row">
+      <div class="row-head"><label for="angle">傾き</label><span class="val" id="angleVal">-12°</span></div>
+      <input type="range" id="angle" min="-45" max="45" step="1" value="-12">
+      <div class="presets">
+        <button data-a="-25">左に強く</button>
+        <button data-a="-12">左に</button>
+        <button data-a="0">水平</button>
+        <button data-a="12">右に</button>
+        <button data-a="25">右に強く</button>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="row-head"><span class="lbl">動き</span></div>
+      <div class="seg" id="motion">
+        <button data-m="fixed" aria-pressed="true">固定</button>
+        <button data-m="creep" aria-pressed="false">じわじわ傾く</button>
+        <button data-m="sway" aria-pressed="false">ゆらゆら</button>
+      </div>
+      <p class="hint" id="motionHint">最初から最後まで同じ角度のままです。</p>
+    </div>
+
+    <div class="row">
+      <div class="row-head"><label for="shake">手ブレ</label><span class="val" id="shakeVal">0</span></div>
+      <input type="range" id="shake" min="0" max="100" step="1" value="0">
+      <div class="seg" id="shakeSpeed" style="margin-top:8px">
+        <button data-s="slow" aria-pressed="false">ゆったり</button>
+        <button data-s="mid" aria-pressed="true">ふつう</button>
+        <button data-s="fast" aria-pressed="false">激しい</button>
+      </div>
+      <p class="hint" id="shakeHint">0で揺れなし。上げるほど、手持ちカメラのように上下左右と傾きが不規則に揺れます。</p>
+    </div>
+
+    <div class="row">
+      <div class="row-head"><span class="lbl">四隅</span></div>
+      <div class="seg" id="fit">
+        <button data-f="fill" aria-pressed="true">拡大して埋める</button>
+        <button data-f="fit" aria-pressed="false">全体を見せる</button>
+      </div>
+      <p class="hint" id="fitHint">傾けてできる黒い隙間が出ないよう、少しズームします。</p>
+    </div>
+
+    <button class="primary" id="exportBtn" disabled>傾けた動画を書き出す</button>
+    <div class="progress" id="progress"><i id="bar"></i></div>
+    <div class="status" id="status" aria-live="polite">まず動画を選んでください。</div>
+  </section>
+
+  <section class="result" id="result">
+    <video id="out" controls playsinline></video>
+    <div class="actions">
+      <button class="save" id="saveBtn">保存する</button>
+    </div>
+    <p class="hint" id="saveHint"></p>
+  </section>
+
+  <footer>書き出しは動画の長さと同じだけ時間がかかります(実時間で再生しながら録画するため)。その間は画面を開いたままにしてください。</footer>
+</main>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const vid = $('vid'), cv = $('cv'), ctx = cv.getContext('2d');
+  const state = { angle:-12, motion:'fixed', fit:'fill', shake:0, shakeSpeed:'mid', loaded:false, exporting:false, blob:null, ext:'webm', name:'video' };
+  let downloads = null;
+  let audioCtx = null, audioDest = null, srcNode = null;
+
+  // Downloads capability (published page)
+  try {
+    if (window.claude && typeof window.claude.use === 'function') {
+      window.claude.use('downloads').then(d => { downloads = d; }).catch(() => {});
+    }
+  } catch (e) {}
+
+  const MOTION_HINT = {
+    fixed:'最初から最後まで同じ角度のままです。',
+    creep:'水平から始まり、約3秒かけて設定した角度まで傾きます。不穏さが増していく演出向き。',
+    sway:'設定した角度を振れ幅にして、左右にゆっくり揺れます。'
+  };
+  const FIT_HINT = {
+    fill:'傾けてできる黒い隙間が出ないよう、少しズームします。',
+    fit:'映像をすべて残し、四隅は黒で埋めます。'
+  };
+
+  // ---- angle over time ----
+  function angleAt(t){
+    const A = state.angle;
+    if (state.motion === 'creep'){
+      const p = Math.min(t / 3, 1);
+      const e = p < .5 ? 2*p*p : 1 - Math.pow(-2*p+2, 2)/2;
+      return A * e;
+    }
+    if (state.motion === 'sway') return A * Math.sin(2*Math.PI*t/4);
+    return A;
+  }
+
+  // ---- handheld shake: smooth deterministic noise (same in preview & export) ----
+  function hash(n){ const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
+  function vnoise(t, seed){
+    const i = Math.floor(t), f = t - i;
+    const u = f*f*(3-2*f);
+    const a = hash(i + seed*1000) * 2 - 1, b = hash(i + 1 + seed*1000) * 2 - 1;
+    return a + (b - a) * u;
+  }
+  function fbm(t, seed){
+    // slow sway + mid wobble + small jitter, like a hand holding a camera
+    return vnoise(t, seed) * 0.6 + vnoise(t * 2.7, seed + 7) * 0.3 + vnoise(t * 7.3, seed + 13) * 0.1;
+  }
+  const SPEED = { slow:0.8, mid:1.8, fast:3.6 };
+  function shakeAt(t){
+    const k = state.shake / 100;
+    if (!k) return { dx:0, dy:0, rot:0, k:0 };
+    const f = SPEED[state.shakeSpeed] * t;
+    return {
+      dx: fbm(f, 1) * 0.035 * k,        // fraction of width
+      dy: fbm(f * 1.1, 2) * 0.03 * k,   // fraction of height
+      rot: fbm(f * 0.9, 3) * 3.5 * k,   // degrees
+      k
+    };
+  }
+
+  function draw(){
+    if (!state.loaded) return;
+    const W = cv.width, H = cv.height;
+    const t = vid.currentTime || 0;
+    const sh = shakeAt(t);
+    const baseDeg = angleAt(t);
+    const deg = baseDeg + sh.rot;
+    const th = deg * Math.PI / 180;
+    let scale = 1;
+    if (state.fit === 'fill'){
+      // Constant zoom for the whole clip: sized for the largest angle and
+      // offset that can ever occur, so the picture never grows or shrinks.
+      const k = state.shake / 100;
+      const maxDeg = Math.min(90, Math.abs(state.angle) + 3.5 * k);
+      const mt = maxDeg * Math.PI / 180;
+      const c = Math.cos(mt), s = Math.sin(mt);
+      scale = Math.max(c + (H/W)*s, (W/H)*s + c);
+      scale *= 1 + 2 * 0.035 * k;
+    }
+    ctx.save();
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0,0,W,H);
+    ctx.translate(W/2 + sh.dx * W, H/2 + sh.dy * H);
+    ctx.rotate(th);
+    ctx.scale(scale, scale);
+    ctx.drawImage(vid, -W/2, -H/2, W, H);
+    ctx.restore();
+    document.documentElement.style.setProperty('--tilt', (deg === 0 ? -2 : deg * 0.6) + 'deg');
+  }
+
+  function loop(){
+    draw();
+    if (!vid.paused && !vid.ended) {
+      if (!state.exporting && vid.duration) $('seek').value = Math.round(vid.currentTime / vid.duration * 1000);
+      requestAnimationFrame(loop);
+    }
+  }
+
+  // ---- loading ----
+  function pick(){ if (!state.exporting) $('file').click(); }
+  $('drop').addEventListener('click', pick);
+  $('drop').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } });
+  $('changeBtn').addEventListener('click', pick);
+  $('file').addEventListener('change', e => { const f = e.target.files[0]; if (f) load(f); e.target.value = ''; });
+  ['dragenter','dragover'].forEach(ev => $('stage').addEventListener(ev, e => { e.preventDefault(); $('drop').classList.add('over'); }));
+  ['dragleave','drop'].forEach(ev => $('stage').addEventListener(ev, e => { e.preventDefault(); $('drop').classList.remove('over'); }));
+  $('stage').addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f && f.type.startsWith('video/')) load(f); });
+
+  function load(file){
+    state.loaded = false;
+    state.name = file.name.replace(/\.[^.]+$/, '') || 'video';
+    if (vid.src) URL.revokeObjectURL(vid.src);
+    vid.src = URL.createObjectURL(file);
+    vid.muted = false;
+    $('status').textContent = '読み込み中…';
+    vid.onloadedmetadata = () => {
+      let w = vid.videoWidth, h = vid.videoHeight;
+      const maxSide = 1920;
+      const k = Math.min(1, maxSide / Math.max(w, h));
+      w = Math.round(w * k / 2) * 2; h = Math.round(h * k / 2) * 2;
+      cv.width = w; cv.height = h;
+      $('stage').style.aspectRatio = w + '/' + h;
+      cv.hidden = false; $('drop').hidden = true; $('transport').hidden = false;
+    };
+    vid.onloadeddata = () => {
+      state.loaded = true;
+      $('exportBtn').disabled = false;
+      $('status').textContent = '角度を決めたら書き出してください。';
+      vid.currentTime = Math.min(0.1, vid.duration || 0);
+    };
+    vid.onseeked = draw;
+    vid.onerror = () => { $('status').textContent = 'この動画形式は読み込めませんでした。MP4(H.264)などで試してください。'; };
+    $('result').classList.remove('on');
+  }
+
+  // ---- transport ----
+  $('playBtn').addEventListener('click', () => {
+    if (state.exporting) return;
+    ensureAudio();
+    if (vid.paused) { vid.play(); } else { vid.pause(); }
+  });
+  vid.addEventListener('play', () => { $('playBtn').textContent = '❚❚'; $('playBtn').setAttribute('aria-label','一時停止'); loop(); });
+  vid.addEventListener('pause', () => { $('playBtn').textContent = '▶'; $('playBtn').setAttribute('aria-label','再生'); });
+  $('seek').addEventListener('input', e => { if (vid.duration && !state.exporting) vid.currentTime = e.target.value / 1000 * vid.duration; });
+
+  // ---- controls ----
+  function setAngle(a){
+    state.angle = a; $('angle').value = a;
+    $('angleVal').textContent = (a > 0 ? '+' : '') + a + '°';
+    draw();
+  }
+  $('angle').addEventListener('input', e => setAngle(+e.target.value));
+  document.querySelectorAll('.presets button').forEach(b => b.addEventListener('click', () => setAngle(+b.dataset.a)));
+  function seg(groupId, key, attr, hintId, hints){
+    const btns = document.querySelectorAll('#' + groupId + ' button');
+    btns.forEach(b => b.addEventListener('click', () => {
+      if (state.exporting) return;
+      state[key] = b.dataset[attr];
+      btns.forEach(x => x.setAttribute('aria-pressed', x === b ? 'true' : 'false'));
+      $(hintId).textContent = hints[state[key]];
+      draw();
+    }));
+  }
+  seg('motion','motion','m','motionHint',MOTION_HINT);
+  seg('fit','fit','f','fitHint',FIT_HINT);
+  seg('shakeSpeed','shakeSpeed','s','shakeHint',{
+    slow:'ゆっくり大きく漂うような揺れ。手持ちで構えたまま立っている感じです。',
+    mid:'手持ちカメラらしい自然な揺れ。報道映像のグラグラ感に近い設定です。',
+    fast:'小刻みで落ち着きのない揺れ。強さを上げると不安感がかなり強まります。'
+  });
+  $('shake').addEventListener('input', e => { state.shake = +e.target.value; $('shakeVal').textContent = state.shake; draw(); });
+
+  // ---- audio routing ----
+  function ensureAudio(){
+    if (srcNode) { if (audioCtx.state === 'suspended') audioCtx.resume(); return; }
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      srcNode = audioCtx.createMediaElementSource(vid);
+      audioDest = audioCtx.createMediaStreamDestination();
+      srcNode.connect(audioDest);
+      srcNode.connect(audioCtx.destination);
+    } catch (e) { srcNode = null; }
+  }
+
+  function pickMime(){
+    const cands = [
+      ['video/mp4;codecs=avc1.42E01E,mp4a.40.2','mp4'],
+      ['video/mp4;codecs=avc1','mp4'],
+      ['video/mp4','mp4'],
+      ['video/webm;codecs=vp9,opus','webm'],
+      ['video/webm;codecs=vp8,opus','webm'],
+      ['video/webm','webm']
+    ];
+    if (typeof MediaRecorder === 'undefined') return null;
+    for (const [m, ext] of cands) if (MediaRecorder.isTypeSupported(m)) return { mime:m, ext };
+    return { mime:'', ext:'webm' };
+  }
+
+  // ---- export ----
+  $('exportBtn').addEventListener('click', async () => {
+    if (!state.loaded || state.exporting) return;
+    const fmt = pickMime();
+    if (!fmt || !cv.captureStream) {
+      $('status').textContent = 'このブラウザは動画の書き出しに対応していません。最新のChromeかSafariで開いてください。';
+      return;
+    }
+    ensureAudio();
+    if (audioCtx && audioCtx.state === 'suspended') await audioCtx.resume();
+
+    const stream = cv.captureStream(30);
+    if (audioDest) audioDest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+    let rec;
+    try {
+      rec = new MediaRecorder(stream, fmt.mime ? { mimeType: fmt.mime, videoBitsPerSecond: 8_000_000 } : undefined);
+    } catch (e) {
+      $('status').textContent = '録画を開始できませんでした。別のブラウザで試してください。';
+      return;
+    }
+    const chunks = [];
+    rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+
+    state.exporting = true;
+    document.querySelectorAll('button, input').forEach(el => { if (el.id !== 'saveBtn') el.disabled = true; });
+    $('progress').classList.add('on'); $('bar').style.width = '0%';
+    $('result').classList.remove('on');
+    $('status').textContent = '書き出し中… 0%';
+
+    vid.pause();
+    vid.currentTime = 0;
+    await new Promise(r => { vid.onseeked = () => { draw(); r(); }; });
+    vid.onseeked = draw;
+
+    const done = new Promise(r => { rec.onstop = r; });
+    rec.start(500);
+    const onTime = () => {
+      if (!vid.duration) return;
+      const p = Math.min(100, vid.currentTime / vid.duration * 100);
+      $('bar').style.width = p + '%';
+      $('status').textContent = '書き出し中… ' + Math.floor(p) + '%';
+    };
+    vid.addEventListener('timeupdate', onTime);
+    const finish = () => { draw(); setTimeout(() => { if (rec.state !== 'inactive') rec.stop(); }, 150); };
+    vid.addEventListener('ended', finish, { once:true });
+    try { await vid.play(); } catch (e) {
+      rec.stop();
+    }
+    await done;
+    vid.removeEventListener('timeupdate', onTime);
+    stream.getVideoTracks().forEach(t => t.stop());
+
+    const type = fmt.mime ? fmt.mime.split(';')[0] : (chunks[0] && chunks[0].type) || 'video/webm';
+    state.blob = new Blob(chunks, { type });
+    state.ext = type.includes('mp4') ? 'mp4' : 'webm';
+    const out = $('out');
+    if (out.src) URL.revokeObjectURL(out.src);
+    out.src = URL.createObjectURL(state.blob);
+
+    state.exporting = false;
+    document.querySelectorAll('button, input').forEach(el => { el.disabled = false; });
+    $('progress').classList.remove('on');
+    if (!state.blob.size) {
+      $('status').textContent = '書き出しに失敗しました。もう一度試してください。';
+      return;
+    }
+    $('status').textContent = '書き出しが終わりました。下で確認して保存できます。';
+    $('saveHint').textContent = state.ext === 'webm'
+      ? '形式はWebMです。iPhoneの写真アプリでは再生できない場合があります。'
+      : '';
+    $('result').classList.add('on');
+    $('result').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block:'start' });
+  });
+
+  // ---- save ----
+  $('saveBtn').addEventListener('click', async () => {
+    if (!state.blob) return;
+    const filename = state.name + '_dutch.' + state.ext;
+    if (downloads) {
+      try {
+        await downloads.save({ filename, data: state.blob });
+        $('saveHint').textContent = '保存しました。';
+      } catch (e) {
+        const code = e && e.code;
+        if (code === 'declined') $('saveHint').textContent = '保存をキャンセルしました。';
+        else if (code === 'rate_limited') $('saveHint').textContent = '保存の確認がすでに開いています。少し待ってからもう一度押してください。';
+        else if (code === 'too_large') $('saveHint').textContent = 'ファイルが大きすぎて保存できませんでした。短い動画で試してください。';
+        else $('saveHint').textContent = 'この画面では保存できません。上のプレーヤーを長押し(または右クリック)して保存してください。';
+      }
+      return;
+    }
+    // Fallback (works outside the published viewer)
+    const a = document.createElement('a');
+    a.href = $('out').src; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    $('saveHint').textContent = '保存が始まらない場合は、上のプレーヤーを長押し(または右クリック)して保存してください。';
+  });
+
+  setAngle(-12);
+})();
+</script>
+</body>
+</html>
